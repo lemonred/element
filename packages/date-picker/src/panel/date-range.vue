@@ -108,9 +108,23 @@
                 :disabled="!enableMonthArrow"
                 :class="{ 'is-disabled': !enableMonthArrow }"
                 class="el-picker-panel__icon-btn el-icon-arrow-right"></button>
-              <div>{{ leftLabel }}</div>
+              <div>
+                  <!-- {{ leftLabel }} -->
+                  <span
+                    @click="showYearPicker('left')"
+                    role="button"
+                    class="el-date-picker__header-label">{{ leftYear }}年</span>
+                  <span
+                    @click="showMonthPicker('left')"
+                    v-show="leftCurrentView === 'date'"
+                    role="button"
+                    class="el-date-picker__header-label"
+                    :class="{ active: leftCurrentView === 'month' }">{{t(`el.datepicker.month${ leftMonth + 1 }`)}}</span>
+                  <!--增加自定义label-->
+                </div>
             </div>
             <date-table
+            v-show="leftCurrentView === 'date'"
               selection-mode="range"
               :date="leftDate"
               :default-value="defaultValue"
@@ -123,6 +137,23 @@
               :first-day-of-week="firstDayOfWeek"
               @pick="handleRangePick">
             </date-table>
+            <!--年table-->
+            <year-table
+              v-show="leftCurrentView === 'year'"
+              @pick="handleLeftYearPick"
+              :value="value"
+              :default-value="defaultValue ? new Date(defaultValue) : null"
+              :date="leftDate"
+              :disabled-date="disabledDate">
+            </year-table>
+            <month-table
+              v-show="leftCurrentView === 'month'"
+              @pick="handleLeftMonthPick"
+              :value="value"
+              :default-value="defaultValue ? new Date(defaultValue) : null"
+              :date="leftDate"
+              :disabled-date="disabledDate">
+            </month-table>
           </div>
           <div class="el-picker-panel__content el-date-range-picker__content is-right">
             <div class="el-date-range-picker__header">
@@ -148,9 +179,21 @@
                 type="button"
                 @click="rightNextMonth"
                 class="el-picker-panel__icon-btn el-icon-arrow-right"></button>
-              <div>{{ rightLabel }}</div>
+              <div>
+                <span
+                    @click="showYearPicker('right')"
+                    role="button"
+                    class="el-date-picker__header-label">{{ rightYear }}年</span>
+                  <span
+                    @click="showMonthPicker('right')"
+                    v-show="rightCurrentView === 'date'"
+                    role="button"
+                    class="el-date-picker__header-label"
+                    :class="{ active: rightCurrentView === 'month' }">{{t(`el.datepicker.month${ rightMonth + 1 }`)}}</span>
+              </div>
             </div>
             <date-table
+              v-show="rightCurrentView === 'date'"
               selection-mode="range"
               :date="rightDate"
               :default-value="defaultValue"
@@ -163,6 +206,22 @@
               :first-day-of-week="firstDayOfWeek"
               @pick="handleRangePick">
             </date-table>
+             <year-table
+              v-show="rightCurrentView === 'year'"
+              @pick="handleRightYearPick"
+              :value="value"
+              :default-value="defaultValue ? new Date(defaultValue) : null"
+              :date="leftDate"
+              :disabled-date="disabledDate">
+            </year-table>
+            <month-table
+              v-show="rightCurrentView === 'month'"
+              @pick="handleRightMonthPick"
+              :value="value"
+              :default-value="defaultValue ? new Date(defaultValue) : null"
+              :date="leftDate"
+              :disabled-date="disabledDate">
+            </month-table>
           </div>
         </div>
       </div>
@@ -201,7 +260,8 @@
     nextMonth,
     nextDate,
     extractDateFormat,
-    extractTimeFormat
+    extractTimeFormat,
+    changeYearMonthAndClampDate
   } from 'element-ui/src/utils/date-util';
   import Clickoutside from 'element-ui/src/utils/clickoutside';
   import Locale from 'element-ui/src/mixins/locale';
@@ -209,6 +269,8 @@
   import DateTable from '../basic/date-table';
   import ElInput from 'element-ui/packages/input';
   import ElButton from 'element-ui/packages/button';
+  import YearTable from '../basic/year-table';
+  import MonthTable from '../basic/month-table';
 
   const calcDefaultValue = (defaultValue) => {
     if (Array.isArray(defaultValue)) {
@@ -347,7 +409,9 @@
         timeUserInput: {
           min: null,
           max: null
-        }
+        },
+        leftCurrentView: 'date',
+        rightCurrentView: 'date'
       };
     },
 
@@ -554,6 +618,52 @@
         if (!close || this.showTime) return;
         this.handleConfirm();
       },
+      // 月份变化
+      handleLeftMonthPick(month) {
+        if (this.selectionMode === 'month') {
+          this.minDate = modifyDate(this.minDate, this.leftYear, month, 1);
+          this.emit(this.minDate);
+        } else {
+          this.leftDate = changeYearMonthAndClampDate(this.leftDate, this.leftYear, month);
+          // TODO: should emit intermediate value ??
+          // this.emit(this.date);
+          this.leftCurrentView = 'date';
+        }
+      },
+      handleRightMonthPick(month) {
+        if (this.selectionMode === 'month') {
+          this.maxDate = modifyDate(this.maxDate, this.rightYear, month, 1);
+          this.emit(this.maxDate);
+        } else {
+          this.rightDate = changeYearMonthAndClampDate(this.rightDate, this.rightYear, month);
+          // TODO: should emit intermediate value ??
+          // this.emit(this.date);
+          this.rightCurrentView = 'date';
+        }
+      },
+      // 年份picker
+      handleLeftYearPick(year) {
+        if (this.selectionMode === 'year') {
+          this.minDate = modifyDate(this.minDate, year, 0, 1);
+          this.emit(this.minDate);
+        } else {
+          this.leftDate = changeYearMonthAndClampDate(this.leftDate, year, this.leftMonth);
+          // TODO: should emit intermediate value ??
+          // this.emit(this.date, true);
+          this.leftCurrentView = 'month';
+        }
+      },
+      handleRightYearPick(year) {
+        if (this.selectionMode === 'year') {
+          this.maxDate = modifyDate(this.maxDate, year, 0, 1);
+          this.emit(this.maxDate);
+        } else {
+          this.rightDate = changeYearMonthAndClampDate(this.rightDate, year, this.rightMonth);
+          // TODO: should emit intermediate value ??
+          // this.emit(this.date, true);
+          this.rightCurrentView = 'month';
+        }
+      },
 
       handleShortcutClick(shortcut) {
         if (shortcut.onClick) {
@@ -599,6 +709,13 @@
       },
 
       // leftPrev*, rightNext* need to take care of `unlinkPanels`
+      showMonthPicker(type) {
+        this[type + 'CurrentView'] = 'month';
+      },
+
+      showYearPicker(type) {
+        this[type + 'CurrentView'] = 'year';
+      },
       leftPrevYear() {
         this.leftDate = prevYear(this.leftDate);
         if (!this.unlinkPanels) {
@@ -674,6 +791,6 @@
       }
     },
 
-    components: { TimePicker, DateTable, ElInput, ElButton }
+    components: { TimePicker,  YearTable, MonthTable,DateTable, ElInput, ElButton }
   };
 </script>
